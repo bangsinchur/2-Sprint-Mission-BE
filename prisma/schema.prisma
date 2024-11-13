@@ -7,6 +7,17 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+model User {
+  id            Int       @id @default(autoincrement())
+  email         String    @unique
+  name          String?
+  password      String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  savedProducts Product[]
+  Comment       Comment[]
+}
+
 model Product {
   id            String    @id @default(uuid())
   name          String
@@ -18,6 +29,7 @@ model Product {
   images        String[]
   favoriteCount Int
   comments      Comment[]
+  savedUsers    User[]
 }
 
 model Article {
@@ -37,4 +49,6 @@ model Comment {
   productId String?
   article   Article? @relation(fields: [articleId], references: [id], onDelete: Cascade)
   articleId String?
+  user      User     @relation(fields: [userId], references: [id])
+  userId    Int
 }

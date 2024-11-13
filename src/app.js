@@ -1,4 +1,5 @@
 import * as dotenv from "dotenv";
+import bcrypt from "bcryptjs";
 dotenv.config();
 import express from "express";
 import { PrismaClient, Prisma } from "@prisma/client";
@@ -9,37 +10,152 @@ import {
   PatchArticle,
   CreateComment,
   PatchComment,
-} from "./structs.js";
+} from "../structs.js";
 import { assert } from "superstruct";
-import cors from 'cors';
+import cors from "cors";
+import { asyncHandler } from "./middlewares/errorHandler.js";
+import jwt from "jsonwebtoken";
+import cookieParser from "cookie-parser";
+import userController from "./controllers/userController.js";
+import errorHandler from "./middlewares/errorHandler.js";
 
 const prisma = new PrismaClient();
 
 const app = express();
 app.use(cors());
 app.use(express.json());
+app.use(cookieParser());
+app.use("", userController);
+app.use(errorHandler);
+/******************* user ***************/
+/** 회원가입 **/
+app.post("/signuptest", async (req, res) => {
+  const { email, nickname, password } = req.body;
 
-function asyncHandler(handler) {
-  return async function (req, res) {
-    try {
-      await handler(req, res);
-    } catch (e) {
-      if (
-        e.name === "StructError" ||
-        e instanceof Prisma.PrismaClientValidationError
-      ) {
-        res.status(400).send({ message: e.message });
-      } else if (
-        e instanceof Prisma.PrismaClientKnownRequestError &&
-        e.code === "P2025"
-      ) {
-        res.sendStatus(404);
-      } else {
-        res.status(500).send({ message: e.message });
-      }
-    }
-  };
-}
+  // 이메일 중복 체크
+  const existingUser = await prisma.user.findUnique({
+    where: { email },
+  });
+  if (existingUser) {
+    return res.status(400).json({ error: "이메일이 이미 사용 중입니다." });
+  }
+
+  // 비밀번호 해싱
+  const encryptedPassword = await bcrypt.hash(password, 10);
+
+  // 사용자 생성
+  const user = await prisma.user.create({
+    data: {
+      email,
+      nickname,
+      encryptedPassword,
+    },
+  });
+
+  res.status(201).json({
+    id: user.id,
+    email: user.email,
+    nickname: user.nickname,
+  });
+});
+
+/***로그인***/
+app.post("/signIntest", async (req, res) => {
+  const { email, password } = req.body;
+
+  // 사용자 조회
+  const user = await prisma.user.findUnique({
+    where: { email },
+  });
+  if (!user) {
+    return res
+      .status(401)
+      .json({ error: "이메일 또는 비밀번호가 잘못되었습니다." });
+  }
+
+  // 비밀번호 확인
+  const isPasswordValid = await bcrypt.compare(
+    password,
+    user.encryptedPassword
+  );
+  if (!isPasswordValid) {
+    return res
+      .status(401)
+      .json({ error: "이메일 또는 비밀번호가 잘못되었습니다." });
+  }
+
+  // JWT 액세스 토큰 발급
+  const accessToken = jwt.sign({ id: user.id }, process.env.JWT_SECRET, {
+    expiresIn: "12h",
+  });
+
+  // 리프레시 토큰 생성
+  const refreshToken = jwt.sign({ id: user.id }, process.env.JWT_SECRET, {
+    expiresIn: "7d",
+  });
+
+  // 리프레시 토큰을 데이터베이스에 저장
+  await prisma.user.update({
+    where: { id: user.id },
+    data: { refreshToken }, // 리프레시 토큰 필드를 추가해야 합니다.
+  });
+
+  res.json({ accessToken, refreshToken });
+});
+
+app.post("/signuptest", async (req, res) => {
+  const { email, nickname, password } = req.body;
+
+  // 이메일 중복 체크
+  const existingUser = await prisma.user.findUnique({
+    where: { email },
+  });
+  if (existingUser) {
+    return res.status(400).json({ error: "이메일이 이미 사용 중입니다." });
+  }
+
+  // 비밀번호 해싱
+  const encryptedPassword = await bcrypt.hash(password, 10);
+
+  // 사용자 생성
+  const user = await prisma.user.create({
+    data: {
+      email,
+      nickname,
+      encryptedPassword,
+    },
+  });
+
+  res.status(201).json({
+    id: user.id,
+    email: user.email,
+    nickname: user.nickname,
+  });
+});
+
+/*리프레시 토큰 사용  API*/
+app.post("/auth/refresh-tokentest", async (req, res) => {
+  const { refreshToken } = req.body;
+
+  // 리프레시 토큰 검증
+  if (!refreshToken) return res.sendStatus(401);
+
+  const user = await prisma.user.findUnique({
+    where: { refreshToken },
+  });
+
+  if (!user) return res.sendStatus(403); // 유효하지 않은 리프레시 토큰
+
+  jwt.verify(refreshToken, process.env.JWT_SECRET, (err) => {
+    if (err) return res.sendStatus(403);
+
+    // 새로운 액세스 토큰 발급
+    const accessToken = jwt.sign({ id: user.id }, process.env.JWT_SECRET, {
+      expiresIn: "12h",
+    });
+    res.json({ accessToken });
+  });
+});
 
 /*********** products ***********/
 
