@@ -1,5 +1,6 @@
 import userRepository from "../repositories/userRepository.js";
 import bcrypt from "bcrypt";
+import jwt from "jsonwebtoken";
 
 async function hashingPassword(password) {
   //비밀번호 해싱
@@ -26,7 +27,7 @@ async function createUser(user) {
 }
 
 function filterSensitiveUserData(user) {
-  const { password, ...rest } = user;
+  const { password, refreshToken, ...rest } = user;
   return rest;
 }
 
@@ -50,8 +51,45 @@ async function verifyPassword(inputPassword, savedPassword) {
     throw error;
   }
 }
+async function updateUser(id, data) {
+  return await userRepository.update(id, data);
+}
+
+function createToken(user, type) {
+  const payload = { userId: user.id };
+  const options = {
+    expiresIn: type === "refresh" ? "2w" : "1h",
+  };
+  return jwt.sign(payload, process.env.JWT_SECRET, options);
+}
+
+async function refreshToken(userId, refreshToken) {
+  const user = await userRepository.findById(userId);
+  if (!user || user.refreshToken !== refreshToken) {
+    const error = new Error("Unauthorized");
+    error.code = 401;
+    throw error;
+  }
+  const accessToken = createToken(user); // 변경
+  const newRefreshToken = createToken(user, "refresh"); // 추가
+  return { accessToken, newRefreshToken }; // 변경
+}
+
+async function getUserById(userId) {
+  const user = await userRepository.findById(userId);
+  if (!user) {
+    const error = new Error("User not found");
+    error.code = 404;
+    throw error;
+  }
+  return filterSensitiveUserData(user);
+}
 
 export default {
   createUser,
   getUser,
+  updateUser,
+  createToken,
+  refreshToken,
+  getUserById
 };
