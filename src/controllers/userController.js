@@ -59,4 +59,19 @@ userController.post(
   }
 );
 
+// 추가된 부분: 사용자의 좋아요 목록 조회 API
+userController.get(
+  "/users/me/favorites",
+  auth.verifyAccessToken,
+  async (req, res, next) => {
+    try {
+      const userId = req.user.userId; // 인증된 사용자 ID 가져오기
+      const favorites = await userService.getUserFavorites(userId); // 사용자 좋아요 목록 가져오기
+      return res.json({ list: favorites });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
 export default userController;

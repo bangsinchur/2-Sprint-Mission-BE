@@ -19,6 +19,8 @@ import userController from "./controllers/userController.js";
 import errorHandler from "./middlewares/errorHandler.js";
 import commentController from "./controllers/commentController.js";
 import productController from "./controllers/productController.js";
+import articleController from "./controllers/articleController.js";
+import { router } from "./middlewares/upload.js";
 
 const prisma = new PrismaClient();
 
@@ -28,26 +30,29 @@ app.use(express.json());
 app.use("", userController);
 app.use("/comments", commentController);
 app.use("/products", productController);
+app.use("/images", router);
+app.use("/articles", articleController);
 app.use(errorHandler);
 
-/*********** products ***********/
+/*********** article ***********/
+
 // app.get(
-//   "/products",
+//   "/article",
 //   asyncHandler(async (req, res) => {
-//     const { offset = 0, limit = 10, order = "recent", searchTerm } = req.query;
+//     const { offset = 0, limit = 10, order = "recent", search } = req.query;
 //     let orderBy;
 //     switch (order) {
-//       case "favorite":
-//         orderBy = { favoriteCount: "desc" };
+//       case "older":
+//         orderBy = { createdAt: "asc" };
 //         break;
 //       case "recent":
 //       default:
 //         orderBy = { createdAt: "desc" };
 //     }
-//     const products = await prisma.product.findMany({
-//       orderBy,
+//     const articles = await prisma.article.findMany({
 //       skip: parseInt(offset),
 //       take: parseInt(limit),
+//       orderBy,
 //       include: {
 //         comments: {
 //           select: {
@@ -58,67 +63,67 @@ app.use(errorHandler);
 //       where: {
 //         OR: [
 //           {
-//             name: {
-//               contains: searchTerm || " ",
-//               mode: "insensitive",
+//             title: {
+//               contains: search || " ", //title에 사용자가 입력한 검색어를 담고있는 변수가 포함된경우
+//               mode: "insensitive", //대소문자 구분없이 검색
 //             },
 //           },
 //           {
-//             description: {
-//               contains: searchTerm || " ",
+//             content: {
+//               contains: search || " ", //content에 사용자가 입력한 검색어를 담고있는 변수가 포함된경우
 //               mode: "insensitive",
 //             },
 //           },
 //         ],
 //       },
 //     });
-//     res.send(products);
+//     res.send(articles);
 //   })
 // );
 
 // app.get(
-//   "/products/:id",
+//   "/article/:id",
 //   asyncHandler(async (req, res) => {
 //     const { id } = req.params;
-//     const product = await prisma.product.findUniqueOrThrow({
+//     const article = await prisma.article.findUniqueOrThrow({
 //       where: { id },
 //       include: {
 //         comments: true,
 //       },
 //     });
-//     res.send(product);
+//     res.send(article);
 //   })
 // );
 
 // app.post(
-//   "/products",
+//   "/article",
 //   asyncHandler(async (req, res) => {
-//     assert(req.body, CreateProduct);
-//     const product = await prisma.product.create({
+//     assert(req.body, CreateArticle);
+//     const article = await prisma.article.create({
 //       data: req.body,
 //     });
-//     res.status(201).send(product);
+//     res.status(201).send(article);
 //   })
 // );
 
 // app.patch(
-//   "/products/:id",
+//   "/article/:id",
 //   asyncHandler(async (req, res) => {
-//     assert(req.body, PatchProduct);
+//     assert(req.body, PatchArticle);
 //     const { id } = req.params;
-//     const product = await prisma.product.update({
+//     const article = await prisma.article.update({
 //       where: { id },
 //       data: req.body,
 //     });
-//     res.send(product);
+//     res.send(article);
 //   })
 // );
 
 // app.delete(
-//   "/products/:id",
+//   "/article/:id",
 //   asyncHandler(async (req, res) => {
 //     const { id } = req.params;
-//     await prisma.product.delete({
+//     await prisma.article.delete({
 //       where: { id },
 //     });
 //     res.sendStatus(204);
@@ -126,10 +131,10 @@ app.use(errorHandler);
 // );
 
 // app.get(
-//   "/products/:id/comments",
+//   "/article/:id/comments",
 //   asyncHandler(async (req, res) => {
 //     const { id } = req.params;
-//     const { comments } = await prisma.product.findUniqueOrThrow({
+//     const { comments } = await prisma.article.findUniqueOrThrow({
 //       where: { id },
 //       include: {
 //         comments: true,
@@ -138,116 +143,6 @@ app.use(errorHandler);
 //     res.send(comments);
 //   })
 // );
-
-/*********** article ***********/
-
-app.get(
-  "/article",
-  asyncHandler(async (req, res) => {
-    const { offset = 0, limit = 10, order = "recent", search } = req.query;
-    let orderBy;
-    switch (order) {
-      case "older":
-        orderBy = { createdAt: "asc" };
-        break;
-      case "recent":
-      default:
-        orderBy = { createdAt: "desc" };
-    }
-    const articles = await prisma.article.findMany({
-      skip: parseInt(offset),
-      take: parseInt(limit),
-      orderBy,
-      include: {
-        comments: {
-          select: {
-            content: true,
-          },
-        },
-      },
-      where: {
-        OR: [
-          {
-            title: {
-              contains: search || " ", //title에 사용자가 입력한 검색어를 담고있는 변수가 포함된경우
-              mode: "insensitive", //대소문자 구분없이 검색
-            },
-          },
-          {
-            content: {
-              contains: search || " ", //content에 사용자가 입력한 검색어를 담고있는 변수가 포함된경우
-              mode: "insensitive",
-            },
-          },
-        ],
-      },
-    });
-    res.send(articles);
-  })
-);
-
-app.get(
-  "/article/:id",
-  asyncHandler(async (req, res) => {
-    const { id } = req.params;
-    const article = await prisma.article.findUniqueOrThrow({
-      where: { id },
-      include: {
-        comments: true,
-      },
-    });
-    res.send(article);
-  })
-);
-
-app.post(
-  "/article",
-  asyncHandler(async (req, res) => {
-    assert(req.body, CreateArticle);
-    const article = await prisma.article.create({
-      data: req.body,
-    });
-    res.status(201).send(article);
-  })
-);
-
-app.patch(
-  "/article/:id",
-  asyncHandler(async (req, res) => {
-    assert(req.body, PatchArticle);
-    const { id } = req.params;
-    const article = await prisma.article.update({
-      where: { id },
-      data: req.body,
-    });
-    res.send(article);
-  })
-);
-
-app.delete(
-  "/article/:id",
-  asyncHandler(async (req, res) => {
-    const { id } = req.params;
-    await prisma.article.delete({
-      where: { id },
-    });
-    res.sendStatus(204);
-  })
-);
-
-app.get(
-  "/article/:id/comments",
-  asyncHandler(async (req, res) => {
-    const { id } = req.params;
-    const { comments } = await prisma.article.findUniqueOrThrow({
-      where: { id },
-      include: {
-        comments: true,
-      },
-    });
-    res.send(comments);
-  })
-);
 
 /*********** comment ***********/
 

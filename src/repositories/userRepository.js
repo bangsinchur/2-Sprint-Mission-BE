@@ -42,11 +42,19 @@ async function createOrUpdate(provider, providerId, email, nickname) {
     create: { provider, providerId, email, nickname },
   });
 }
-
+async function findFavoritesByUserId(userId) {
+  return await prisma.favorite.findMany({
+    where: { userId },
+    include: {
+      product: true, // 좋아요한 상품 정보 포함
+    },
+  });
+}
 export default {
   findById,
   findByEmail,
   save,
   update,
   createOrUpdate,
+  findFavoritesByUserId,
 };

@@ -58,7 +58,7 @@ async function updateUser(id, data) {
 function createToken(user, type) {
   const payload = { userId: user.id };
   const options = {
-    expiresIn: type === "refresh" ? "2w" : "1h",
+    expiresIn: type === "refresh" ? "2w" : "9h",
   };
   return jwt.sign(payload, process.env.JWT_SECRET, options);
 }
@@ -85,11 +85,25 @@ async function getUserById(userId) {
   return filterSensitiveUserData(user);
 }
 
+async function getUserFavorites(userId) {
+  const favorites = await userRepository.findFavoritesByUserId(userId);
+  return favorites.map((favorite) => ({
+    id: favorite.product.id,
+    name: favorite.product.name,
+    description: favorite.product.description,
+    price: favorite.product.price,
+    favoriteCount: favorite.product.favoriteCount,
+    images: favorite.product.images,
+    // 추가적인 상품 정보가 필요하다면 여기에 더 추가
+  }));
+}
+
 export default {
   createUser,
   getUser,
   updateUser,
   createToken,
   refreshToken,
-  getUserById
+  getUserById,
+  getUserFavorites,
 };
